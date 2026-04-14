@@ -143,10 +143,10 @@
       <div class="collapsible-section" *ngIf="result.preambleHtml || result.qualityScore">
         <button class="collapsible-header" (click)="toggleAdditionalInfo()">
           <span class="toggle-icon">{{ showAdditionalInfo ? '▼' : '▶' }}</span>
-          <span>Additional Information (PBI Summary, Quality Assessment, Analysis)</span>
+          <span>Additional Information (Test Suite Summary, Quality Assessment, Analysis)</span>
         </button>
         <div class="collapsible-content" *ngIf="showAdditionalInfo">
-          <!-- Preamble Content (PBI Summary, Quality Assessment, etc.) -->
+          <!-- Preamble Content (Test Suite Summary, Quality Assessment, etc.) -->
           <div class="preamble-section markdown-content" *ngIf="result.preambleHtml" [innerHTML]="result.preambleHtml">
           </div>
 

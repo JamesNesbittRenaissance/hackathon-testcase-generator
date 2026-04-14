@@ -10,10 +10,14 @@ interface AnalysisResult {
   type: string;
   content: string;
   htmlContent: SafeHtml;
+  preambleHtml?: SafeHtml; // Content before TC-001 (test suite summary, quality assessment, analysis, etc.)
+  mainTestCasesHtml?: SafeHtml; // Main test cases content
+  additionalTestsHtml?: SafeHtml; // Additional tests if any
   timestamp: Date;
   qualityScore?: string;
   qualityScoreHtml?: SafeHtml;
   iterations?: number;
+  isFocusedGeneration?: boolean; // True if this was Happy Path + Top 5 only
 }
 
 interface QualityAssessment {
@@ -62,6 +66,8 @@ export class AnalysisComponent implements OnDestroy {
   userFeedback: string = '';
   showExportModal: boolean = false;
   exportSuccess: string = '';
+  showAdditionalInfo: boolean = false;
+  showAdditionalTests: boolean = false;
 
   // Progress tracking
   generatingDots: string = '';
@@ -206,7 +212,7 @@ export class AnalysisComponent implements OnDestroy {
     return prompts;
   }
 
-  async generateTestCases(withFeedback: boolean = false) {
+  async generateTestCases(withFeedback: boolean = false, generateAll: boolean = false) {
     if (!this.itemData) {
       this.error = 'Please fetch a PBI first';
       return;
@@ -228,6 +234,13 @@ export class AnalysisComponent implements OnDestroy {
       return;
     }
 
+    // Log generation mode
+    if (generateAll) {
+      console.log('📋 Generating ALL test cases (comprehensive mode)');
+    } else {
+      console.log('📋 Generating Happy Path + Top 5 Critical tests (focused mode)');
+    }
+
     this.loading = true;
     this.error = '';
     this.startGeneratingAnimation();
@@ -241,7 +254,8 @@ export class AnalysisComponent implements OnDestroy {
     // Build additional context from quality assessment improvement points
     const additionalContext = this.buildAdditionalContext();
 
-    if (!withFeedback) {
+    if (!withFeedback && !generateAll) {
+      // Only clear results if this is a new generation (not feedback, not generate-all)
       this.analysisResults = [];
       this.userFeedback = '';
     }
@@ -253,6 +267,7 @@ export class AnalysisComponent implements OnDestroy {
         withFeedback ? this.userFeedback : undefined,
         previousTestCases,
         additionalContext || undefined,
+        generateAll,
         (message: string) => {
           // Update progress message from server
           this.progressMessage = message;
@@ -267,14 +282,21 @@ export class AnalysisComponent implements OnDestroy {
           qualityScoreHtml = this.sanitizer.sanitize(1, marked.parse(result.qualityScore)) || '';
         }
 
+        // Extract preamble, main test cases, and additional tests
+        const preambleContent = this.extractPreamble(result.data);
+        const mainTestCases = this.extractMainTestCases(result.data);
+
         this.analysisResults.push({
           type: 'testCases',
           content: result.data,
           htmlContent: this.sanitizer.sanitize(1, htmlContent) || '',
+          preambleHtml: preambleContent ? this.sanitizer.sanitize(1, marked.parse(preambleContent)) || undefined : undefined,
+          mainTestCasesHtml: this.sanitizer.sanitize(1, marked.parse(mainTestCases)) || '',
           timestamp: new Date(),
           qualityScore: result.qualityScore,
           qualityScoreHtml: qualityScoreHtml,
-          iterations: result.iterations
+          iterations: result.iterations,
+          isFocusedGeneration: !generateAll
         });
 
         // Clear feedback and error after successful regeneration
@@ -382,6 +404,29 @@ export class AnalysisComponent implements OnDestroy {
     setTimeout(() => {
       this.exportSuccess = '';
     }, 8000);
+  }
+
+  // Extract content before TC-001 (test suite summary, quality assessment, analysis, etc.)
+  extractPreamble(content: string): string {
+    const tc001Match = content.match(/^(.*?)(?=##?\s*TC-001)/s);
+    return tc001Match ? tc001Match[1].trim() : '';
+  }
+
+  // Extract main test cases (TC-001 to TC-006 or all if generateAll was true)
+  extractMainTestCases(content: string): string {
+    const tc001Start = content.search(/##?\s*TC-001/);
+    if (tc001Start === -1) {
+      return content; // No TC-001 found, return all content
+    }
+    return content.substring(tc001Start);
+  }
+
+  toggleAdditionalInfo() {
+    this.showAdditionalInfo = !this.showAdditionalInfo;
+  }
+
+  toggleAdditionalTests() {
+    this.showAdditionalTests = !this.showAdditionalTests;
   }
 
   ngOnDestroy() {

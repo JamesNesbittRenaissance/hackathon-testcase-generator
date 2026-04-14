@@ -23,6 +23,7 @@ export class ApiService {
     userFeedback?: string,
     previousTestCases?: string,
     additionalContext?: string,
+    generateAll?: boolean,
     onProgress?: (message: string) => void
   ): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -37,7 +38,8 @@ export class ApiService {
           analysisType,
           userFeedback,
           previousTestCases,
-          additionalContext
+          additionalContext,
+          generateAll
         })
       })
       .then(response => {
